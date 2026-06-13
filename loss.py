@@ -67,98 +67,6 @@ class MCRLoss(nn.Module):
 
         return -total_loss, (discrimn_loss, compress_term, compress_loss, scalars)
 
-class ColMCRLoss(nn.Module):
-
-    def __init__(self, gamma1, gamma2, eps, numclasses, num_neig):
-        super(ColMCRLoss, self).__init__()
-
-        self.num_class = numclasses
-        self.faster_logdet = False
-        self.gamma1 = gamma1
-        self.gamma2 = gamma2
-        self.eps = eps
-        self.num_neig = num_neig
-
-    def forward(self, Z, real_label, Z_neig, Z_neig_label):
-        err, term1, term2 = self.fast_version(Z, real_label, Z_neig, Z_neig_label)
-        return err, term1, term2
-
-    def fast_version(self, Z, real_label, Z_neig, Z_neig_label):
-
-        """ decrease the times of calculate log-det  from 52 to 32"""
-
-        z_total, (z_discrimn_item, z_compress_item, z_compress_losses, z_scalars) = \
-                    self.deltaR(Z, real_label, Z_neig, Z_neig_label, self.num_class)
-        
-        errD_mcr = self.gamma1 * z_discrimn_item - self.gamma2 * z_compress_item
-
-        errD = -1.0 * errD_mcr
-
-        return errD, -1.0 * self.gamma1 * z_discrimn_item, self.gamma2 * z_compress_item
-
-    def logdet(self, X):
-
-        if self.faster_logdet:
-            return 2 * torch.sum(torch.log(torch.diag(torch.linalg.cholesky(X, upper=True))))
-        else:
-            return torch.logdet(X)
-
-    def compute_discrimn_loss(self, Z):
-        """Theoretical Discriminative Loss."""
-        d, n = Z.shape
-        I = torch.eye(d).to(Z.device)
-        scalar = d / (n * self.eps)
-        logdet = self.logdet(I + scalar * Z @ Z.T)
-        return logdet / 2.
-
-    def compute_compress_loss(self, Z, Pi, Z_neig, Pi_neig):
-        """Theoretical Compressive Loss."""
-        # print(Z.shape, Z_neig.shape)
-        d, n =  Z.shape
-        I = torch.eye(d).to(Z.device)
-        compress_loss = []
-        scalars = []
-        for k in range(Pi.shape[1]):
-            if len(Z_neig.shape) == 2:
-                trPi = Pi[:, k].sum() + Pi_neig[:, k].sum() +1e-8
-                scalar = d / (trPi * self.eps)
-                Z_nei = Z_neig.to(Z.device)
-                Z_ = Z[:, Pi[:, k] == 1]
-                Z_nei_ = Z_nei[:, Pi_neig[:, k] == 1]
-                if (Z_nei_.shape[1] != 0) & (Z_.shape[1] != 0):
-                    new_z = torch.cat((Z_, Z_nei_), dim=1)
-                else:
-                    new_z = Z_
-                log_det = 1. if Pi[:, k].sum() == 0 else self.logdet(I + scalar * new_z @ new_z.T)
-            else:
-                trPi = Pi[:, k].sum() + 1e-8
-                scalar = d / (trPi * self.eps)
-                Z_ = Z[:, Pi[:, k] == 1]
-                new_z = Z_
-                log_det = 1. if Pi[:, k].sum() == 0 else self.logdet(I + scalar * new_z @ new_z.T)
-
-            compress_loss.append(log_det)
-            trPi = Pi[:, k].sum() + 1e-8
-            scalars.append(trPi / (2 * n))           
-                
-        return compress_loss, scalars
-
-    def deltaR(self, Z, Y, Z_neig, Y_neig, num_classes):
-
-        Pi = F.one_hot(Y, num_classes).to(Z.device)
-        Pi_neig = F.one_hot(Y_neig, num_classes).to(Z.device)
-        
-        discrimn_loss = self.compute_discrimn_loss(Z.T)
-        compress_loss, scalars = self.compute_compress_loss(Z.T, Pi, Z_neig.T, Pi_neig)
-
-        compress_term = 0.
-        for z, s in zip(compress_loss, scalars):
-            compress_term += s * z
-        total_loss = discrimn_loss - compress_term
-
-        return -total_loss, (discrimn_loss, compress_term, compress_loss, scalars)
-
-
 class ColMCRLoss3(nn.Module):
 
     def __init__(self, gamma1, gamma2, eps, rho, numclasses, num_neig):
@@ -272,7 +180,7 @@ class ColMCRLoss3_5(nn.Module):
 
         errD_mcr = self.gamma1 * z_discrimn_item - self.gamma2 * z_compress_item
 
-        errD = -1.0 * errD_mcr + other_term1+ other_term2
+        errD = -1.0 * errD_mcr + other_term1 + other_term2
 
         return errD, -1.0 * self.gamma1 * z_discrimn_item, self.gamma2 * z_compress_item, other_term1, other_term2
 

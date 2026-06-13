@@ -144,32 +144,7 @@ def accuracy_topk(output, target, topk=(1, )):
             correct_k = correct[:k].contiguous().view(-1).float().sum(0, keepdim=True)
             res.append(correct_k)
         return res[-1]
-
-def plot_corZ_old(Z_all, label_all, agent_all, path_fig):
-    # first sort Z_all according to their labels
-    num_samples = len(Z_all)
-    index_all = range(num_samples) # original index
-    sorted_id = sorted(index_all, key=lambda x:label_all[x], reverse=False)
-    label_new = [label_all[idx] for idx in sorted_id]
-    agent_new = [agent_all[idx] for idx in sorted_id]
-    # print(label_new)
-    Z_new = [Z_all[idx] for idx in sorted_id]
-    del Z_all, label_all, agent_all, sorted_id, index_all
     
-    Z = np.array(Z_new)
-    result_matrix = 1-sp.distance.cdist(Z, Z, 'cosine')
-    print("get result_matrix")
-    for i in range(num_samples):
-        if np.isnan(result_matrix[i, i]):
-            print("0 results: ", i, Z_new[i], label_new[i], agent_new[i])
-    del Z, Z_new, label_new, agent_new
-    plt.matshow(result_matrix, cmap=plt.cm.Blues)
-    plt.colorbar(fraction=0.046, pad=0.04) # fraction->width of the bar; pad->distace
-    plt.clim(0, 1)
-    plt.savefig(path_fig)
-    plt.close()
-    del result_matrix
-    return 0
 
 def plot_corZ(Z_all, label_all, path_fig):
     from collections import OrderedDict

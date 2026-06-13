@@ -10,14 +10,6 @@ import json
 
 
 def getAttr(NUM_OF_CLIENTS, Num_Categories):
-    """
-    :return:
-    CategoryToClients: 每个用户本地占有样本类别数
-    LocalDist: 每个用户本地样本组成
-    SamplesToClients: 每个用户本地样本数
-    MAX_NUM: 最大用户本地样本数
-    TimeVal：每个用户本地样本比例（以最大用户本地样本数归一化）
-    """
     # Define minimum and maximum samples for each client
 
     RemainedSamples_train = [5000 for i in range(10)]

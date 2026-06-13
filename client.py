@@ -1,10 +1,10 @@
 import numpy as np
 import torch
-from trainer_col import MCRTrainer, ColMCRTrainer3, ColMCRTrainer3_5  # ColMCRTrainer,  ColMCRTrainer2, ColMCRTrainer3, ColMCRTrainer3_3, ColMCRTrainer3_4, 
+from trainer_col import MCRTrainer, ColMCRTrainer3, ColMCRTrainer3_5  
 
 import torch.nn.functional as F
 from general_utils import accuracy_softmax, accuracy_topk
-from loss import MCRLoss, ColMCRLoss, ColMCRLoss3, ColMCRLoss3_5 #ColMCRLoss2, ColMCRLoss3_3, ColMCRLoss3_4, 
+from loss import MCRLoss, ColMCRLoss3, ColMCRLoss3_5 
 
 class CEClient(object):
     def __init__(self, client_id, data_set_train, data_set_test, num_classes, dimz, neig, num_neig, device, path):
@@ -261,7 +261,6 @@ class MCRClient(object):
         torch.save(self.netD.state_dict(), path + str(self.id) + "_netD.pt")
         torch.save(self.netC.state_dict(), path + str(self.id) + "_netC.pt")
 
-
 class ColMCRClient3(object):
     def __init__(self, client_id, data_set_train, data_set_test, num_classes, dimz, neig, num_neig, device, path):
         """Client object is initiated by the center server."""
@@ -447,10 +446,7 @@ class ColMCRClient3_5(object):
         self.total_receinodes_perclass = total_receinodes_perclass
         self.device = device
         self.neig = neig
-        if (self.id==1) or (self.id==5):
-            self.rho = 2.0      
-        else:
-            self.rho = 2.0
+        self.rho = 2.0
           
         self.local_label = local_label
         self.Si=Si
@@ -515,7 +511,7 @@ class ColMCRClient3_5(object):
             dataloader_test = torch.utils.data.DataLoader(self.dataset_test, batch_size = int(len(self.dataset_test)/5), shuffle=True)
             for idx2, (data_test, label_test) in enumerate(dataloader_test):
                 feature_test = self.netD.to(self.device)(data_test.to(self.device))
-                colmcr_loss = ColMCRLoss3_4(gamma1 = 1.0, gamma2 = 1.0, eps=0.5, rho=self.rho, numclasses=self.num_classes, num_neig=self.num_neig)
+                colmcr_loss = ColMCRLoss3_5(gamma1 = 1.0, gamma2 = 1.0, eps=0.5, rho=self.rho, numclasses=self.num_classes, num_neig=self.num_neig)
                 err, _, _, _, _ = colmcr_loss(feature_test, label_test, V_cluster, num_V_cluster,\
                                             self.V_old.to(self.device), [item.to(self.device) for item in self.V_neig], self.Y.to(self.device))
                                            
