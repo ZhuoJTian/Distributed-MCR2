@@ -10,16 +10,7 @@ import json
 
 
 def getAttr(NUM_OF_CLIENTS):
-    """
-    :return:
-    CategoryToClients: 每个用户本地占有样本类别数
-    LocalDist: 每个用户本地样本组成
-    SamplesToClients: 每个用户本地样本数
-    MAX_NUM: 最大用户本地样本数
-    TimeVal：每个用户本地样本比例（以最大用户本地样本数归一化）
-    """
     # Define minimum and maximum samples for each client
-
 
     RemainedSamples_train = [5000 for i in range(10)]
     RemainedSamples_test = [800 for i in range(10)]
@@ -68,11 +59,11 @@ def getAttr(NUM_OF_CLIENTS):
 
     LocalDist_test_array=np.array(LocalDist_test)
     LocalDist_train_array=np.array(LocalDist_train)
-    np.savetxt(f"./data/LocalDist_niid_test{NUM_OF_CLIENTS}.txt", LocalDist_test_array, fmt='%d')
-    np.savetxt(f"./data/LocalDist_niid{NUM_OF_CLIENTS}.txt", LocalDist_train_array, fmt='%d')
+    np.savetxt(f"./data/LocalDist_iid_test{NUM_OF_CLIENTS}.txt", LocalDist_test_array, fmt='%d')
+    np.savetxt(f"./data/LocalDist_iid{NUM_OF_CLIENTS}.txt", LocalDist_train_array, fmt='%d')
     '''
-    LocalDist_array=np.loadtxt("./data/LocalDist_niid"+str(NUM_OF_CLIENTS)+".txt")
-    LocalDist_test_array=np.loadtxt("./data/LocalDist_niid_test"+str(NUM_OF_CLIENTS)+".txt")
+    LocalDist_array=np.loadtxt("./data/LocalDist_iid"+str(NUM_OF_CLIENTS)+".txt")
+    LocalDist_test_array=np.loadtxt("./data/LocalDist_iid_test"+str(NUM_OF_CLIENTS)+".txt")
 
     SamplesToClients=[0.0 for i in range(NUM_OF_CLIENTS)]
     for client in range(NUM_OF_CLIENTS):
