@@ -80,8 +80,6 @@ pip install -e .
 
 The maintained package includes the supplied adjacency matrices and client partition tables. Default console commands locate these resources inside the installed package. A custom matrix can be supplied with `--adjacency-file /path/to/matrix.txt`.
 
-The included `4_adj_matrix.txt` was derived in stage 2 from the leading 4×4 block of the supplied 5×5 matrix. It is dimensionally compatible with the active four-client non-IID script, but the intended research topology should still be confirmed before reproducing paper results.
-
 ## Running the experiments
 
 After installation, the preferred commands are:
@@ -131,16 +129,6 @@ Training outputs are written under `Exp_results/` by the current entry scripts. 
 - correlation visualizations;
 - model checkpoints under a `models/` subdirectory.
 
-Generated datasets, results, checkpoints, caches, and local environments are excluded through `.gitignore`.
-
-## Important implementation notes
-
-1. `--device auto` selects CUDA when available and otherwise uses CPU; full training is expected to be much faster on a GPU.
-2. Dataset and output paths are resolved relative to the current working directory; packaged experiment resources are resolved from the installation.
-3. CIFAR-10 is the actively maintained experiment path. Other dataset modules are retained but are not exposed as dedicated console commands.
-4. The default schedule is 1,000 epochs and may require substantial compute time.
-5. The four-client non-IID adjacency matrix is a maintenance-derived compatibility resource and should be scientifically verified before result reproduction.
-
 ## Basic repository check
 
 You can verify that all Python files are syntactically valid without starting training:
@@ -148,20 +136,6 @@ You can verify that all Python files are syntactically valid without starting tr
 ```bash
 python -m compileall .
 ```
-
-This check does not verify the missing adjacency matrices, GPU compatibility, data download, or numerical correctness.
-
-## Reproducibility checklist
-
-Before attempting to reproduce results:
-
-- use a CUDA-enabled PyTorch installation;
-- restore the correct adjacency matrix files;
-- run commands from the repository root;
-- verify the client count and adjacency matrix dimensions;
-- record Python, PyTorch, torchvision, CUDA, and GPU versions;
-- retain the random seed used by the experiment;
-- confirm output directories have sufficient disk space.
 
 ## Citation
 
@@ -175,22 +149,3 @@ Before attempting to reproduce results:
   doi={10.1109/TSP.2026.3702222}
 }
 ```
-
-## License
-
-The supplied source archive did not include an open-source license. A conservative `LICENSE` notice has therefore been added that keeps all rights reserved. Before publishing the repository as open source, the copyright holders should explicitly select and approve an open-source license such as MIT, BSD-3-Clause, or Apache-2.0.
-
-## Stage 2 maintenance changes
-
-The second maintenance stage improves reliability while retaining the original
-training objective and model definitions:
-
-- experiment parameters are no longer overwritten after argument parsing;
-- `--device auto` selects CUDA when available and otherwise uses CPU;
-- dataset, result, partition, and adjacency paths are resolved relative to the
-  repository rather than the current shell directory;
-- adjacency matrices are checked before training for existence and dimensions;
-- output directories are created automatically;
-- learning rate, local epochs, save interval, client count, and adjacency file
-  are exposed as command-line options;
-- unused imports and several inconsistent path expressions were removed.
