@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import os
 import time
-from dataset.mnist import infiniteloop
-from loss import MCRLoss, ColMCRLoss3, ColMCRLoss3_5
+from .dataset.mnist import infiniteloop
+from .loss import MCRLoss, ColMCRLoss3, ColMCRLoss3_5
 import torch.nn.functional as F
 import numpy as np
 

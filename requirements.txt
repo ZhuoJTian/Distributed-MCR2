@@ -1,0 +1,8 @@
+# Install a PyTorch/torchvision build compatible with your CUDA driver when using a GPU.
+torch>=1.12
+torchvision>=0.13
+numpy>=1.21
+scipy>=1.7
+scikit-learn>=1.0
+matplotlib>=3.5
+Pillow>=9.0

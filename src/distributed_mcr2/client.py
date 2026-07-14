@@ -1,10 +1,10 @@
 import numpy as np
 import torch
-from trainer_col import MCRTrainer, ColMCRTrainer3, ColMCRTrainer3_5  
+from .trainer_col import MCRTrainer, ColMCRTrainer3, ColMCRTrainer3_5  
 
 import torch.nn.functional as F
-from general_utils import accuracy_softmax, accuracy_topk
-from loss import MCRLoss, ColMCRLoss3, ColMCRLoss3_5 
+from .general_utils import accuracy_softmax, accuracy_topk
+from .loss import MCRLoss, ColMCRLoss3, ColMCRLoss3_5 
 
 class CEClient(object):
     def __init__(self, client_id, data_set_train, data_set_test, num_classes, dimz, neig, num_neig, device, path):

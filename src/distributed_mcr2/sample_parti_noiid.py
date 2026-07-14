@@ -3,10 +3,11 @@
 # distribution for each client (non i.i.d. distribution)
 #######################################################################################################
 
+from pathlib import Path
+
 import numpy as np
-import random
-import sys
-import json
+
+DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
 def getAttr(NUM_OF_CLIENTS, Num_Categories):
@@ -29,7 +30,7 @@ def getAttr(NUM_OF_CLIENTS, Num_Categories):
 
     np.savetxt("./data/CategoryToClients5_4.txt", CategoryToClients, fmt='%d')
     '''
-    CategoryToClients_array=np.loadtxt("./data/CategoryToClients4.txt")
+    CategoryToClients_array=np.loadtxt(DATA_DIR / "CategoryToClients4.txt")
     CategoryToClients =[[int(CategoryToClients_array[i, j])
                         for j in range(CategoryToClients_array.shape[1])]
                         for i in range(CategoryToClients_array.shape[0])]
@@ -64,8 +65,8 @@ def getAttr(NUM_OF_CLIENTS, Num_Categories):
     np.savetxt("./data/LocalDist_niid_test5_4.txt", LocalDist_test_array, fmt='%d')
     np.savetxt("./data/LocalDist_niid5_4.txt", LocalDist_train_array, fmt='%d')
     '''
-    LocalDist_array=np.loadtxt("./data/LocalDist_niid4.txt")
-    LocalDist_test_array=np.loadtxt("./data/LocalDist_niid_test4.txt")
+    LocalDist_array=np.loadtxt(DATA_DIR / "LocalDist_niid4.txt")
+    LocalDist_test_array=np.loadtxt(DATA_DIR / "LocalDist_niid_test4.txt")
 
     SamplesToClients=[0.0 for i in range(NUM_OF_CLIENTS)]
     for client in range(NUM_OF_CLIENTS):

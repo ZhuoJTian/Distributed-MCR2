@@ -1,20 +1,18 @@
-from __future__ import absolute_import
-from __future__ import print_function
-
-from client import ColMCRClient3_5
+from .client import ColMCRClient3_5
 import torch
 import copy
 import numpy as np
 
 # import datasets_old
-from model import Encoder_CIFAR, Classifier
-from args import parse_args
-from general_utils import setup_seed, plot_corZ
-from Sample_parti_noiid5 import getAttr
-from dataset import cifar10, mnist
-import torch.nn.functional as F
+from .model import Encoder_CIFAR, Classifier
+from .args import parse_args
+from .general_utils import setup_seed, plot_corZ
+from .sample_parti_noiid import getAttr
+from .dataset import cifar10
+from .paths import resolve_input_path, resolve_output_path
+from pathlib import Path
 
-def create_clients(datasets_train, datasets_test, LocalDist, CategoryToClients, num_classes, dim_z, total_receinodes, total_receinodes_perclass, adj, path):
+def create_clients(datasets_train, datasets_test, LocalDist, CategoryToClients, num_classes, dim_z, total_receinodes, total_receinodes_perclass, adj, path, device):
     clients = []
     for k in range(len(datasets_train)):
         neig_location = total_receinodes[k]
@@ -30,8 +28,8 @@ def create_clients(datasets_train, datasets_test, LocalDist, CategoryToClients, 
                         total_receinodes_perclass = total_receinodes_perclass[k],
                         local_label=CategoryToClients[k],
                         Si=Si,
-                        device="cuda",
-                        path = path)
+                        device=device,
+                        path=path)
         clients.append(client)
     return clients
 
@@ -48,7 +46,7 @@ def set_up_clients(args, models, adj):
     total_receinodes, total_receinodes_perclass = get_receivenodes(args.num_clients, CategoryToClients, Categories_client)
     # print(total_receinodes)
     clients = create_clients(local_datasets_train, local_datasets_test, LocalDist, CategoryToClients,
-                             args.num_classes, args.dim_z, total_receinodes, total_receinodes_perclass, adj, args.path_result)
+                             args.num_classes, args.dim_z, total_receinodes, total_receinodes_perclass, adj, args.path_result, args.device)
     for client_id in range(args.num_clients):
         client = clients[client_id]
         model = models[client_id]
@@ -58,11 +56,12 @@ def set_up_clients(args, models, adj):
         
         client.netD = copy.deepcopy(encoder).to("cpu")
         client.netC = copy.deepcopy(classifier).to("cpu")
-        opt_D = torch.optim.Adam(client.netD.parameters(), lr=0.01, weight_decay=args.weight_decay)
-        opt_C = torch.optim.Adam(client.netC.parameters(), lr=0.01, weight_decay=args.weight_decay)
+        opt_D = torch.optim.Adam(client.netD.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+        opt_C = torch.optim.Adam(client.netC.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
 
         '''
-        path_model = args.path_result+"models/"+ str(client_id)
+        path_model = str(Path(args.path_result) / "models")
+    Path(path_model).mkdir(parents=True, exist_ok=True)+ str(client_id)
         checkpoint = torch.load(path_model + "_netD.pt")
         client.netD.load_state_dict(checkpoint['model_state_dict'])
         client.netD.eval()
@@ -89,7 +88,7 @@ def set_up_clients(args, models, adj):
         client.Y = torch.zeros((args.dim_z*args.num_classes, args.dim_z))
         client.getV()
         client.setup(batch_size=args.batch_size,
-                     num_local_epochs=1,
+                     num_local_epochs=args.num_local_epochs,
                      optimizer_D=opt_D,
                      optimizer_C=opt_C
                      )
@@ -133,18 +132,44 @@ def get_V_cluster(clients, args, receive_idx, Cluster, Labels):
     # print(VVKnodes, VV_num)
     return VVKnodes, VV_num
 
+def _resolve_device(requested):
+    if requested == "auto":
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    if requested == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is not available.")
+    return requested
+
+
+def _load_adjacency(path, num_clients):
+    matrix_path = resolve_input_path(path)
+    if not matrix_path.is_file():
+        raise FileNotFoundError(f"Adjacency matrix not found: {matrix_path}")
+    adjacency = np.loadtxt(matrix_path)
+    if adjacency.shape != (num_clients, num_clients):
+        raise ValueError(
+            f"Expected a {num_clients}x{num_clients} adjacency matrix, "
+            f"but {matrix_path.name} has shape {adjacency.shape}."
+        )
+    return adjacency
+
+
 def main():
-    adj = np.loadtxt("./5_adj_matrix.txt")
-    args = parse_args()
+    args = parse_args(
+        default_num_clients=4,
+        default_result_path="Exp_results/NIID/CIFAR10_S/ColMCR",
+        default_adjacency_file="4_adj_matrix.txt",
+    )
+    args.device = _resolve_device(args.device)
+    args.data_dir = str(resolve_output_path(args.data_dir))
+    args.path_result = str(resolve_output_path(args.path_result))
+    Path(args.path_result).mkdir(parents=True, exist_ok=True)
+    adj = _load_adjacency(args.adjacency_file, args.num_clients)
     setup_seed(args.seed)
-    args.num_clients = 4
-    args.num_classes = 10
-    args.path_result = "./Exp_results/NIID/CIFAR10_S/ColMCR/"
-    args.epochs = 1000
     models = ['res18', 'res18', 'res18', 'res18']# ['res18', 'vgg11', 'vgg16', 'res34', 'vgg11']
     clients = set_up_clients(args, models, adj)
     print("client set up")
-    path_model = args.path_result+"models/"
+    path_model = str(Path(args.path_result) / "models")
+    Path(path_model).mkdir(parents=True, exist_ok=True)
     # Start training
     Cluster = [
         [0, 1], [2, 3]
@@ -178,7 +203,7 @@ def main():
             client.getVV_part(label_s)
             if (epoch+1)%1==0:
                 # client.client_savemodel(path_model)
-                file_path = args.path_result + "loss_" + str(client_id) + ".txt"
+                file_path = Path(args.path_result) / f"loss_{client_id}.txt"
                 with open(file_path, "a+") as f:
                     f.write("epoch {} ".format(epoch+1))
                     f.write("Trainloss: {:.4f}, Trainloss_term1: {:.4f}, Trainloss_term2: {:.4f}, Trainloss_other1: {:.4f}, Trainloss_other2: {:.4f}".format(\
@@ -196,7 +221,7 @@ def main():
             client.getVV_part(label_s)
             if (epoch+1)%1==0:
                 # client.client_savemodel(path_model)
-                file_path = args.path_result + "loss_" + str(client_id) + ".txt"
+                file_path = Path(args.path_result) / f"loss_{client_id}.txt"
                 with open(file_path, "a+") as f:
                     f.write("epoch {} ".format(epoch+1))
                     f.write("Trainloss: {:.4f}, Trainloss_term1: {:.4f}, Trainloss_term2: {:.4f}, Trainloss_other1: {:.4f}, Trainloss_other2: {:.4f}".format(\
@@ -206,7 +231,7 @@ def main():
         for client_id in range(args.num_clients):
             client = clients[client_id]
             client.getV()
-            if (epoch+1)%100==0:
+            if (epoch + 1) % args.save_every == 0:
                 client.client_savemodel(path_model)
                 Z_list, label_list = client.getz_all_list()
                 Z_all += copy.deepcopy(Z_list)                
@@ -216,8 +241,8 @@ def main():
 
         clients = get_Vneig(clients, args)
 
-        if (epoch+1)%100 == 0:
-            path_fig = args.path_result + "CorZ_" + str(epoch+1) + ".jpg"
+        if (epoch + 1) % args.save_every == 0:
+            path_fig = str(Path(args.path_result) / f"CorZ_{epoch + 1}.jpg")
             plot_corZ(Z_all, label_all, agent_all, path_fig)
 
         # evaluate on test set

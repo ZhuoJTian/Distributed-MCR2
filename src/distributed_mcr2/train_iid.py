@@ -1,20 +1,17 @@
-from __future__ import absolute_import
-from __future__ import print_function
-
-from client import ColMCRClient3
+from .client import ColMCRClient3
 import torch
 import copy
 import numpy as np
-import os
+from pathlib import Path
 # import datasets_old
-from model import Encoder_CIFAR, Classifier
-from args import parse_args
-from general_utils import setup_seed, plot_corZ
-from Sample_parti import getAttr
-from dataset import cifar10
-import torch.nn.functional as F
+from .model import Encoder_CIFAR, Classifier
+from .args import parse_args
+from .general_utils import plot_corZ, setup_seed
+from .paths import resolve_input_path, resolve_output_path
+from .sample_parti import getAttr
+from .dataset import cifar10
 
-def create_clients(datasets_train, datasets_test, num_classes, dim_z, adj, path):
+def create_clients(datasets_train, datasets_test, num_classes, dim_z, adj, path, device):
     clients = []
     for k in range(len(datasets_train)):
         neig_location = list(np.nonzero(adj[:, k])[0])
@@ -26,8 +23,8 @@ def create_clients(datasets_train, datasets_test, num_classes, dim_z, adj, path)
                         dimz=dim_z,
                         neig=neig_location,
                         num_neig=num_neig,
-                        device="cuda",
-                        path = path)
+                        device=device,
+                        path=path)
         clients.append(client)
     return clients
 
@@ -41,7 +38,7 @@ def set_up_clients(args, adj, models):
     print("load the datasets")
     # Ini_model = RestNet18_att()
     clients = create_clients(local_datasets_train, local_datasets_test, 
-                             args.num_classes, args.dim_z, adj, args.path_result)
+                             args.num_classes, args.dim_z, adj, args.path_result, args.device)
     for client_id in range(args.num_clients):
         client = clients[client_id]
         model = models[client_id]
@@ -51,13 +48,13 @@ def set_up_clients(args, adj, models):
         client.netD = copy.deepcopy(encoder).to("cpu")
         client.netC = copy.deepcopy(classifier).to("cpu")
         del(encoder, classifier)
-        opt_D = torch.optim.Adam(client.netD.parameters(), lr=0.01, weight_decay=args.weight_decay)
-        opt_C = torch.optim.Adam(client.netC.parameters(), lr=0.01, weight_decay=args.weight_decay)
+        opt_D = torch.optim.Adam(client.netD.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+        opt_C = torch.optim.Adam(client.netC.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
         # initialize T and Y
         client.Y = torch.zeros((args.dim_z*args.num_classes, args.dim_z))
         client.getV()
         client.setup(batch_size=args.batch_size,
-                     num_local_epochs=1,
+                     num_local_epochs=args.num_local_epochs,
                      optimizer_D=opt_D,
                      optimizer_C=opt_C
                      )
@@ -92,19 +89,40 @@ def Agg_model(clients, adj_matrix, Models):
         client.netC.load_state_dict(client_vars_sum)
     return clients
 
+def _resolve_device(requested):
+    if requested == "auto":
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    if requested == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA was requested but is not available.")
+    return requested
+
+
+def _load_adjacency(path, num_clients):
+    matrix_path = resolve_input_path(path)
+    if not matrix_path.is_file():
+        raise FileNotFoundError(f"Adjacency matrix not found: {matrix_path}")
+    adjacency = np.loadtxt(matrix_path)
+    if adjacency.shape != (num_clients, num_clients):
+        raise ValueError(
+            f"Expected a {num_clients}x{num_clients} adjacency matrix, "
+            f"but {matrix_path.name} has shape {adjacency.shape}."
+        )
+    return adjacency
+
+
 def main():
-    adj = np.loadtxt("./10_adj_matrix.txt")
     args = parse_args()
+    args.device = _resolve_device(args.device)
+    args.data_dir = str(resolve_output_path(args.data_dir))
+    args.path_result = str(resolve_output_path(args.path_result))
+    Path(args.path_result).mkdir(parents=True, exist_ok=True)
+    adj = _load_adjacency(args.adjacency_file, args.num_clients)
     setup_seed(args.seed)
-    args.num_clients = 10
-    args.num_classes = 10
-    args.path_result = "./Exp_results/IID/CIFAR10/ColMCR/"
-    args.epochs = 1000
     models = ['res18', 'res34', 'vgg11', 'vgg16', 'res18', 'res34', 'vgg11', 'vgg16', 'res18', 'res34']
     clients = set_up_clients(args, adj, models)
     print("client set up")
-    path_model = args.path_result+"models/"
-    os.makedirs(path_model, exist_ok=True)
+    path_model = str(Path(args.path_result) / "models")
+    Path(path_model).mkdir(parents=True, exist_ok=True)
     # Start training
 
     for epoch in range(args.epochs):
@@ -123,14 +141,14 @@ def main():
 
             if (epoch+1)%1==0:
                 # client.client_savemodel(path_model)
-                file_path = args.path_result + "loss_" + str(client_id) + ".txt"
+                file_path = Path(args.path_result) / f"loss_{client_id}.txt"
                 with open(file_path, "a+") as f:
                     f.write("epoch {} ".format(epoch+1))
                     f.write("Trainloss: {:.4f}, Testloss: {:.4f}, Trainloss_term1: {:.4f}, Trainloss_term2: {:.4f}, Trainloss_other1: {:.4f}, Trainloss_other2: {:.4f}".format(\
                         train_loss, test_loss, loss_term1, loss_term2, other_term1, other_term2))
                     f.write("\n")
         
-            if (epoch+1)%100==0:
+            if (epoch + 1) % args.save_every == 0:
                 client.client_savemodel(path_model)
                 Z_list, label_list = client.getz_all_list()
                 Z_all += copy.deepcopy(Z_list)                
@@ -141,15 +159,15 @@ def main():
         clients = get_Vneig(clients, args)
 
         if (epoch+1)%1==0:
-            file_path = args.path_result + "averaged_result" + ".txt"
+            file_path = Path(args.path_result) / "averaged_result.txt"
             with open(file_path, "a+") as f:
                 f.write("epoch {} ".format(epoch+1))
                 f.write("Trainloss: {:.4f}, Testloss: {:.4f}".format(np.average(train_loss_all), np.average(test_loss_all)))
                 f.write("\n")
 
         
-        if (epoch+1)%100 == 0:
-            path_fig = args.path_result + "CorZ_" + str(epoch+1) + ".png"
+        if (epoch + 1) % args.save_every == 0:
+            path_fig = str(Path(args.path_result) / f"CorZ_{epoch + 1}.png")
             plot_corZ(Z_all, label_all, path_fig)
 
         # evaluate on test set

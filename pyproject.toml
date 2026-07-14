@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "distributed-mcr2"
+version = "0.3.0"
+description = "Distributed representation learning with maximal coding rate reduction"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [
+  {name = "Zhuojun Tian"},
+  {name = "Chaouki Ben Issaid"},
+  {name = "Mehdi Bennis"},
+]
+dependencies = [
+  "torch>=1.12",
+  "torchvision>=0.13",
+  "numpy>=1.21",
+  "scipy>=1.7",
+  "scikit-learn>=1.0",
+  "matplotlib>=3.5",
+  "Pillow>=9.0",
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.scripts]
+distributed-mcr2-iid = "distributed_mcr2.train_iid:main"
+distributed-mcr2-niid = "distributed_mcr2.train_niid:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+distributed_mcr2 = ["data/*.txt", "resources/*.txt"]
